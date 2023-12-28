@@ -1,61 +1,111 @@
-/*
-* This file is part of the LSTM Network implementation In C made by Rickard Hallerbäck
-* 
-*                 Copyright (c) 2018 Rickard Hallerbäck
-* 
-* Permission is hereby granted, free of charge, to any person obtaining a copy of this 
-* software and associated documentation files (the "Software"), 
-* to deal in the Software without restriction, including without limitation the rights 
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-* Software, and to permit persons to whom the Software is furnished to do so, subject to 
-* the following conditions:
-* The above copyright notice and this permission notice shall be included in all copies 
-* or substantial portions of the Software.
-*
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-* PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE 
-* FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
-* OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
-* OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-#ifndef LSTM_SET_H
-#define LSTM_SET_H
-
-/*! \file set.h
-    \brief LSTM feature-to-index mapping
-    
-    Features get mapped to an index value.
-    This process is done using the following definitions and functions.
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 #include <inttypes.h>
+#define SET_MAX_CHARS	1000
 
-#define	SET_MAX_CHARS	1000
-
-typedef struct set_t {
-  char values[SET_MAX_CHARS];
-  int free[SET_MAX_CHARS];
+//https://stackoverflow.com/questions/17764661/multiple-definition-of-linker-error
+//Use static to prevent multiple definitions error
+typedef struct set_t
+{
+	char values[SET_MAX_CHARS];
+	int free[SET_MAX_CHARS];
 } set_t;
 
-int set_insert_symbol(set_t*, char);
-char set_indx_to_char(set_t*, int);
-int set_char_to_indx(set_t*, char);
-int set_probability_choice(set_t*, double*);
-int set_greedy_argmax(set_t*, double*);
-int set_get_features(set_t*);
 
-void set_print(set_t*, double*);
+static void InitializeVocabulary(set_t * set) 
+{
+	for(int i = 0; i < SET_MAX_CHARS; i++)
+	{
+		set->values[i] = '\0';
+		set->free[i] = 1;
+	}
+}
 
-void initialize_set(set_t*);
+static int AddCharacterToVocabulary(set_t * set, char c)
+{
+	for(int i = 0; i < SET_MAX_CHARS; i++)
+	{
+		if((char)set->values[i] == c && set->free[i] == 0)
+		{
+			return i;		
+		}
+		if(set->free[i])
+		{
+			set->values[i] = c;
+			set->free[i] = 0;
+			return 0;
+		}
+	}
+	return -1;
+}
 
-void set_store_as_json(set_t *, FILE*);
-void set_store(set_t *, FILE*);
-int set_read(set_t *, FILE*);
+static char ConvertIndexToCharacter(set_t* set, int index)
+{
+	if(index >= SET_MAX_CHARS)
+	{
+		return '\0';
+	}
+	return (char) set->values[index];
+}
 
-#endif
+static int ConvertCharacterToIndex(set_t* set, char c) 
+{
+	for(int i = 0; i < SET_MAX_CHARS; i++)
+	{
+		if(set->values[i] == (int) c && set->free[i] == 0)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+static int ChooseBestProbabilityFromSet(set_t* set, double* probs)
+{
+	double sum = 0.0f;
+	double randomValue = 0.0f;
+	randomValue = ((double) rand())/RAND_MAX;
+	for(int i = 0; i < SET_MAX_CHARS; i++)
+	{
+		sum += probs[i];
+		if(sum - randomValue > 0)
+		{
+			return set->values[i];	
+		}
+	}
+//PrintVocabulary(set,probs);
+  return 0;
+}
+
+static int CountVocabularySize(set_t* set) 
+{
+	int i = 0;
+	while(set->free[i] == 0)
+	{
+		i++;
+	}
+	if(i < SET_MAX_CHARS)
+	{
+		return i;
+	}
+	return 0;
+}
+
+static void PrintVocabulary(set_t* set, double* probs)
+{
+	int i = 0;
+	while(set->values[i] != 0 && i < SET_MAX_CHARS )
+	{
+		if(set->values[i] == '\n')
+		{
+			printf("[ newline:  %lf ]\n", probs[i]);
+		}
+		else
+		{
+			printf("[ %c:     %lf ]\n", set->values[i], probs[i]);
+		}
+		i+=1;
+	}
+}

@@ -1,26 +1,3 @@
-/*
-* This file is part of the LSTM Network implementation In C made by Rickard Hallerbäck
-* 
-*                 Copyright (c) 2018 Rickard Hallerbäck
-* 
-* Permission is hereby granted, free of charge, to any person obtaining a copy of this 
-* software and associated documentation files (the "Software"), 
-* to deal in the Software without restriction, including without limitation the rights 
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-* Software, and to permit persons to whom the Software is furnished to do so, subject to 
-* the following conditions:
-* The above copyright notice and this permission notice shall be included in all copies 
-* or substantial portions of the Software.
-*
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-* PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE 
-* FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
-* OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
-* OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
 #include "lstm.h"
 
 void lstm_init_fail(const char * msg)
@@ -601,16 +578,16 @@ void lstm_forward_propagate(lstm_model_t* model, double *input,
   }
 
   // Fully connected + sigmoid layers 
-  fully_connected_forward(cache_out->hf, model->Wf, X_one_hot, model->bf, N, S);
+  FullyConnectedForwardLayer(cache_out->hf, model->Wf, X_one_hot, model->bf, N, S);
   sigmoid_forward(cache_out->hf, cache_out->hf, N);
 
-  fully_connected_forward(cache_out->hi, model->Wi, X_one_hot, model->bi, N, S);
+  FullyConnectedForwardLayer(cache_out->hi, model->Wi, X_one_hot, model->bi, N, S);
   sigmoid_forward(cache_out->hi, cache_out->hi, N);
 
-  fully_connected_forward(cache_out->ho, model->Wo, X_one_hot, model->bo, N, S);
+  FullyConnectedForwardLayer(cache_out->ho, model->Wo, X_one_hot, model->bo, N, S);
   sigmoid_forward(cache_out->ho, cache_out->ho, N);
 
-  fully_connected_forward(cache_out->hc, model->Wc, X_one_hot, model->bc, N, S);
+  FullyConnectedForwardLayer(cache_out->hc, model->Wc, X_one_hot, model->bc, N, S);
   tanh_forward(cache_out->hc, cache_out->hc, N);
 
   // c = hf * c_old + hi * hc
@@ -627,7 +604,7 @@ void lstm_forward_propagate(lstm_model_t* model, double *input,
   vectors_multiply(cache_out->h, cache_out->tanh_c_cache, N);
 
   // probs = softmax ( Wy*h + by )
-  fully_connected_forward(cache_out->probs, model->Wy, cache_out->h, model->by, Y, N);
+  FullyConnectedForwardLayer(cache_out->probs, model->Wy, cache_out->h, model->by, Y, N);
   if ( softmax > 0 ) {
     softmax_layers_forward(cache_out->probs, cache_out->probs, Y, model->params->softmax_temp);
   } 
@@ -681,7 +658,7 @@ void lstm_backward_propagate(lstm_model_t* model, double* y_probabilities, int y
   }
 #endif
 
-  fully_connected_backward(dldy, model->Wy, h, gradients->Wy, dldh, gradients->by, Y, N);
+  FullyConnectedBackwardLayer(dldy, model->Wy, h, gradients->Wy, dldh, gradients->by, Y, N);
   vectors_add(dldh, dldh_next, N);
 
   copy_vector(dldho, dldh, N);
@@ -705,10 +682,10 @@ void lstm_backward_propagate(lstm_model_t* model, double* y_probabilities, int y
   vectors_multiply(dldhc, dldc, N);
   tanh_backward(dldhc, cache_in->hc, dldhc, N);
 
-  fully_connected_backward(dldhi, model->Wi, cache_in->X, gradients->Wi, gradients->dldXi, gradients->bi, N, S);
-  fully_connected_backward(dldhc, model->Wc, cache_in->X, gradients->Wc, gradients->dldXc, gradients->bc, N, S);
-  fully_connected_backward(dldho, model->Wo, cache_in->X, gradients->Wo, gradients->dldXo, gradients->bo, N, S);
-  fully_connected_backward(dldhf, model->Wf, cache_in->X, gradients->Wf, gradients->dldXf, gradients->bf, N, S);
+  FullyConnectedBackwardLayer(dldhi, model->Wi, cache_in->X, gradients->Wi, gradients->dldXi, gradients->bi, N, S);
+  FullyConnectedBackwardLayer(dldhc, model->Wc, cache_in->X, gradients->Wc, gradients->dldXc, gradients->bc, N, S);
+  FullyConnectedBackwardLayer(dldho, model->Wo, cache_in->X, gradients->Wo, gradients->dldXo, gradients->bo, N, S);
+  FullyConnectedBackwardLayer(dldhf, model->Wf, cache_in->X, gradients->Wf, gradients->dldXf, gradients->bf, N, S);
 
   // dldXi will work as a temporary substitute for dldX (where we get extract dh_next from!)
   vectors_add(gradients->dldXi, gradients->dldXc, S);
@@ -792,568 +769,7 @@ void lstm_cache_container_set_start(lstm_values_cache_t * cache, int neurons)
 
 }
 
-void lstm_store_net_layers(lstm_model_t** model, FILE *fp, unsigned int layers)
-{
-  unsigned int p = 0;
 
-  while ( p < layers ) {
-
-#ifdef STORE_NET_AS_ASCII
-    vector_store_ascii(model[p]->Wy, model[p]->Y * model[p]->N, fp);
-    vector_store_ascii(model[p]->Wi, model[p]->N * model[p]->S, fp);
-    vector_store_ascii(model[p]->Wc, model[p]->N * model[p]->S, fp);
-    vector_store_ascii(model[p]->Wo, model[p]->N * model[p]->S, fp);
-    vector_store_ascii(model[p]->Wf, model[p]->N * model[p]->S, fp);
-
-    vector_store_ascii(model[p]->by, model[p]->Y, fp);
-    vector_store_ascii(model[p]->bi, model[p]->N, fp);
-    vector_store_ascii(model[p]->bc, model[p]->N, fp);
-    vector_store_ascii(model[p]->bf, model[p]->N, fp);
-    vector_store_ascii(model[p]->bo, model[p]->N, fp);
-#else
-    vector_store(model[p]->Wy, model[p]->Y * model[p]->N, fp);
-    vector_store(model[p]->Wi, model[p]->N * model[p]->S, fp);
-    vector_store(model[p]->Wc, model[p]->N * model[p]->S, fp);
-    vector_store(model[p]->Wo, model[p]->N * model[p]->S, fp);
-    vector_store(model[p]->Wf, model[p]->N * model[p]->S, fp);
-
-    vector_store(model[p]->by, model[p]->Y, fp);
-    vector_store(model[p]->bi, model[p]->N, fp);
-    vector_store(model[p]->bc, model[p]->N, fp);
-    vector_store(model[p]->bf, model[p]->N, fp);
-    vector_store(model[p]->bo, model[p]->N, fp);
-#endif
-
-    ++p;
-  }
-}
-
-void lstm_store_net_layers_as_json(lstm_model_t** model, const char * filename, 
-  const char *set_name, set_t *set, unsigned int layers)
-{
-  FILE * fp;
-  unsigned int p = 0;
-
-  fp = fopen(filename, "w");
-
-  if ( fp == NULL ) {
-    printf("Failed to open file: %s for writing.\n", filename);
-    return;
-  }
-
-  fprintf(fp, "{\n\"%s\": ", set_name);
-  set_store_as_json(set, fp);
-
-  fprintf(fp, ",\n\"LSTM layers\": %d,\n", layers);
-
-  while ( p < layers ) {
-
-    if ( p > 0 ) 
-      fprintf(fp, ",\n");
-
-    fprintf(fp, "\"Layer %d\": {\n", p+1);
-
-    fprintf(fp, "\t\"Wy\": ");
-    vector_store_as_matrix_json(model[p]->Wy, model[p]->Y, model[p]->N, fp);
-    fprintf(fp, ",\n\t\"Wi\": ");
-    vector_store_as_matrix_json(model[p]->Wi, model[p]->N, model[p]->S, fp);
-    fprintf(fp, ",\n\t\"Wc\": ");
-    vector_store_as_matrix_json(model[p]->Wc, model[p]->N, model[p]->S, fp);
-    fprintf(fp, ",\n\t\"Wo\": ");
-    vector_store_as_matrix_json(model[p]->Wo, model[p]->N, model[p]->S, fp);
-    fprintf(fp, ",\n\t\"Wf\": ");
-    vector_store_as_matrix_json(model[p]->Wf, model[p]->N, model[p]->S, fp);
-
-    fprintf(fp, ",\n\t\"by\": ");
-    vector_store_json(model[p]->by, model[p]->Y, fp);
-    fprintf(fp, ",\n\t\"bi\": ");
-    vector_store_json(model[p]->bi, model[p]->N, fp);
-    fprintf(fp, ",\n\t\"bc\": ");
-    vector_store_json(model[p]->bc, model[p]->N, fp);
-    fprintf(fp, ",\n\t\"bf\": ");
-    vector_store_json(model[p]->bf, model[p]->N, fp);
-    fprintf(fp, ",\n\t\"bo\": ");
-    vector_store_json(model[p]->bo, model[p]->N, fp);
-
-    fprintf(fp, "}\n");
-
-    ++p;
-  }
-
-  fprintf(fp, "}\n");
-
-  fclose(fp);
-
-}
-
-// Exits the program if EOF is encountered
-static void e_lstm_fgets(char *str, size_t n, FILE *fp)
-{
-  if ( fgets(str,n,fp) == NULL ) {
-    fprintf(stderr, "lstm_read error: unexpected EOF. \
-Net-file incompatible with current version.\n"); 
-    fflush(stderr);
-    exit(1);
-  }
-}
-
-void lstm_load(const char *path, set_t *set,
-  lstm_model_parameters_t *params, lstm_model_t ***model)
-{
-  FILE * fp;
-  char intContainer[10];
-  int f;
-  int F;
-  int L;
-  int l;
-  int layerInputs[LSTM_MAX_LAYERS];
-  int layerNodes[LSTM_MAX_LAYERS];
-  int layerOutputs[LSTM_MAX_LAYERS];
-  int FileVersion;
-
-  fp = fopen(path, "r");
-
-  if ( fp == NULL ) {
-    printf("%s error: Failed to open file: %s for reading.\n", 
-      __func__, path);
-    exit(1);
-  }
-
-  initialize_set(set);
-
-  /*
-  * LSTM net file structure
-  * File version   BINARY_FILE_VERSION
-  * NbrFeatures    (F)
-  * NbrLayers      (L)
-  * Nodes in layer 1 (output layer)
-  * Nodes in layer 2
-  * ...
-  * Nodes in layer L (input layer)
-  * Feature Value 1 (int in ASCII [0-255])
-  * Feature Value 2
-  * ...
-  * Feature Value F
-  * --- From here on it is a blob of bytes ---
-  * Layer 1: Wy
-  * Layer 1: Wi
-  * Layer 1: Wc
-  * Layer 1: Wo
-  * Layer 1: Wf
-  * Layer 1: by
-  * Layer 1: bi
-  * Layer 1: bc
-  * Layer 1: bf
-  * Layer 1: bo
-  * ...
-  * Layer L: Wy
-  * Layer L: Wi
-  * ...
-  */
-
-  // Read file version
-  e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-  FileVersion = atoi(intContainer);
-  (void) FileVersion; // Not used yet, in this early stage
-  // Read NbrFeatures
-  e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-  F = atoi(intContainer);
-
-  // Read NbrLayers
-  e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-  L = atoi(intContainer);
-
-  if ( L > LSTM_MAX_LAYERS ) {
-    // This is too many layers
-    fprintf(stderr, "%s error: Failed to load network, too many layers.\n", 
-      __func__);
-    exit(1);
-  }
-
-  // Setting the number of layers among the parameters
-  params->layers = L;
-
-  l = 0;
-  while ( l < L ) {
-    // Read number of inputs, nodes and ouputs in this layer
-    e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-    layerInputs[l] = atoi(intContainer);
-    e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-    layerNodes[l] = atoi(intContainer);
-    e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-    layerOutputs[l] = atoi(intContainer);
-    ++l;
-  }
-
-  // Setting the number of neurons
-  // NOTE: it is the same for each layer (for now)
-  params->neurons = layerNodes[0];
-
-  // Import feature set
-  f = 0;
-  while ( f < F ) {
-    e_lstm_fgets(intContainer, sizeof(intContainer), fp);
-    set->values[f] = (char)atoi(intContainer);
-    set->free[f] = 0;
-    ++f;
-  }
-
-  assert(set_get_features(set) == layerInputs[L-1]);
-
-  *model = (lstm_model_t**) malloc(L*sizeof(lstm_model_t*));
-  if ( *model == NULL )
-    lstm_init_fail("Failed to allocate resources for the net read\n");
-
-  l = 0;
-  while ( l < L ) {
-    lstm_init_model(
-      layerInputs[l],
-      layerNodes[l],
-      layerOutputs[l],
-      &(*model)[l], 0, params);
-    ++l;
-  }
-
-  lstm_read_net_layers(*model, fp, L);
-
-  fclose(fp);
-}
-
-void lstm_store(const char *path, set_t *set,
-  lstm_model_t **model, unsigned int layers)
-{
-  FILE * fp;
-  int f;
-  int F = set_get_features(set);
-  unsigned int l;
-  unsigned int L = layers;
-
-  fp = fopen(path, "w");
-
-  if ( fp == NULL ) {
-    printf("%s error: Failed to open file: %s for writing.\n", 
-      __func__, path);
-    exit(1);
-  }
-
-  /*
-  * LSTM net file structure
-  * File version   BINARY_FILE_VERSION
-  * NbrFeatures    (F)
-  * NbrLayers      (L)
-  * Inputs  layer  1 (output layer)
-  * Nodes   layer  1
-  * outputs layer  1
-  * Inputs  layer  2
-  * Nodes   layer  2
-  * outputs layer  2
-  * ...
-  * Inputs  layer  L (input layer)
-  * Nodes   layer  L
-  * outputs layer  L
-  * Feature Value  1 (int in ASCII [0-255])
-  * Feature Value  2
-  * ...
-  * Feature Value  F
-  * --- From here on it is a blob of bytes ---
-  * Layer 1: Wy
-  * Layer 1: Wi
-  * Layer 1: Wc
-  * Layer 1: Wo
-  * Layer 1: Wf
-  * Layer 1: by
-  * Layer 1: bi
-  * Layer 1: bc
-  * Layer 1: bf
-  * Layer 1: bo
-  * ...
-  * Layer L: Wy
-  * Layer L: Wi
-  * ...
-  */
-
-  // Write file version
-  fprintf(fp, "%d\r\n", BINARY_FILE_VERSION);
-
-  // Write NbrFeatures
-  fprintf(fp, "%d\r\n", F);
-
-  // Write NbrLayers
-  fprintf(fp, "%d\r\n", L);
-
-  l = 0;
-  while ( l < L ) {
-    // write number of inputs, nodes and outputs in this layer
-    fprintf(fp, "%d\r\n%d\r\n%d\r\n",
-      model[l]->X, model[l]->N, model[l]->Y);
-    ++l;
-  }
-
-  // Write feature set
-  f = 0;
-  while ( f < F ) {
-    fprintf(fp, "%d\r\n", set->values[f]);
-    ++f;
-  }
-
-  // Write the network weights
-  lstm_store_net_layers(model, fp, L);
-
-  fclose(fp);
-}
-
-int lstm_reinit_model(
-  lstm_model_t** model, unsigned int layers,
-  unsigned int previousNbrFeatures, unsigned int newNbrFeatures)
-{
-  /* Expand last and first layer, add newNbrFeatures - previousNbrFeatures 
-  *  rows with random initialized weights. */
-  lstm_model_t* modelInputs;
-  lstm_model_t* modelOutputs;
-
-  int Sold = model[layers-1]->S;
-  int Snew = newNbrFeatures + model[layers-1]->N;
-  int Nin = model[layers-1]->N;
-  int Nout;
-  int Yold = previousNbrFeatures;
-  int Ynew = newNbrFeatures;
-  int i, n;
-
-  double *newVectorWf;
-  double *newVectorWi;
-  double *newVectorWc;
-  double *newVectorWo;
-  double *newVectorWy;
-
-  /* Sanity checks.. */
-  if ( layers == 0 )
-    return -1;
-
-  /* Sanity checks, don't report back error codes because.. */
-  if ( previousNbrFeatures == newNbrFeatures ||
-      previousNbrFeatures > newNbrFeatures )
-    return -1;
-
-  assert(previousNbrFeatures < newNbrFeatures);
-  assert(Sold < Snew);
-
-  Nout = model[0]->N;
-
-  modelOutputs = model[0];
-  modelInputs = model[layers-1];
-
-  // Reallocate the vectors that depend on input size
-  newVectorWf = get_random_vector(Nin * Snew, Snew*5);
-  newVectorWi = get_random_vector(Nin * Snew, Snew*5);
-  newVectorWc = get_random_vector(Nin * Snew, Snew*5);
-  newVectorWo = get_random_vector(Nin * Snew, Snew*5);
-
-  n = 0;
-  while ( n < Nin ) {
-    i = 0;
-    while ( i < Sold ) {
-      newVectorWf[n*Snew + i] = modelInputs->Wf[n*Sold + i];
-      newVectorWi[n*Snew + i] = modelInputs->Wi[n*Sold + i];
-      newVectorWc[n*Snew + i] = modelInputs->Wc[n*Sold + i];
-      newVectorWo[n*Snew + i] = modelInputs->Wo[n*Sold + i];
-      ++i;
-    }
-    ++n;
-  }
-
-  free(modelInputs->Wf);
-  free(modelInputs->Wi);
-  free(modelInputs->Wc);
-  free(modelInputs->Wo);
-  free(modelInputs->dldXc);
-  free(modelInputs->dldXo);
-  free(modelInputs->dldXi);
-  free(modelInputs->dldXf);
-  free(modelInputs->Wfm);
-  free(modelInputs->Wim);
-  free(modelInputs->Wcm);
-  free(modelInputs->Wom);
-
-  modelInputs->Wf = newVectorWf;
-  modelInputs->Wi = newVectorWi;
-  modelInputs->Wc = newVectorWc;
-  modelInputs->Wo = newVectorWo;
-
-  modelInputs->dldXc = get_zero_vector(Snew);
-  modelInputs->dldXo = get_zero_vector(Snew);
-  modelInputs->dldXi = get_zero_vector(Snew);
-  modelInputs->dldXf = get_zero_vector(Snew);
-
-  modelInputs->Wfm = get_zero_vector(Nin * Snew);
-  modelInputs->Wim = get_zero_vector(Nin * Snew);
-  modelInputs->Wcm = get_zero_vector(Nin * Snew);
-  modelInputs->Wom = get_zero_vector(Nin * Snew);
-
-  // Reallocate vectors that depend on output size
-  newVectorWy = get_random_vector(Ynew * Nout, Nout);
-  n = 0;
-  while ( n < Yold ) {
-    i = 0;
-    while ( i < Nout ) {
-      newVectorWy[n*Nout + i] = modelOutputs->Wy[n*Nout + i];
-      ++i;
-    }
-    ++n;
-  }
-
-  free(modelOutputs->Wy);
-  free(modelOutputs->by);
-  free(modelOutputs->Wym);
-  free(modelOutputs->bym);
-
-  modelOutputs->Wy = newVectorWy;
-  modelOutputs->by = get_zero_vector(Ynew);
-  modelOutputs->Wym = get_zero_vector(Ynew * Nout);
-  modelOutputs->bym = get_zero_vector(Ynew);
-
-  // Set new information
-  modelInputs->X = newNbrFeatures;
-  modelInputs->S = Snew;
-  modelOutputs->Y = newNbrFeatures;
-
-  return 0;
-}
-
-void lstm_read_net_layers(lstm_model_t** model, FILE *fp, unsigned int layers)
-{
-  // Will only work for ( layer1->N, layer1->F ) == ( layer2->N, layer2->F )
-  unsigned int p = 0;
-
-  while ( p < layers ) {
-
-#ifdef STORE_NET_AS_ASCII
-    vector_read_ascii(model[p]->Wy, model[p]->Y * model[p]->N, fp);
-    vector_read_ascii(model[p]->Wi, model[p]->N * model[p]->S, fp);
-    vector_read_ascii(model[p]->Wc, model[p]->N * model[p]->S, fp);
-    vector_read_ascii(model[p]->Wo, model[p]->N * model[p]->S, fp);
-    vector_read_ascii(model[p]->Wf, model[p]->N * model[p]->S, fp);
-
-    vector_read_ascii(model[p]->by, model[p]->Y, fp);
-    vector_read_ascii(model[p]->bi, model[p]->N, fp);
-    vector_read_ascii(model[p]->bc, model[p]->N, fp);
-    vector_read_ascii(model[p]->bf, model[p]->N, fp);
-    vector_read_ascii(model[p]->bo, model[p]->N, fp);
-    #else
-    vector_read(model[p]->Wy, model[p]->Y * model[p]->N, fp);
-    vector_read(model[p]->Wi, model[p]->N * model[p]->S, fp);
-    vector_read(model[p]->Wc, model[p]->N * model[p]->S, fp);
-    vector_read(model[p]->Wo, model[p]->N * model[p]->S, fp);
-    vector_read(model[p]->Wf, model[p]->N * model[p]->S, fp);
-
-    vector_read(model[p]->by, model[p]->Y, fp);
-    vector_read(model[p]->bi, model[p]->N, fp);
-    vector_read(model[p]->bc, model[p]->N, fp);
-    vector_read(model[p]->bf, model[p]->N, fp);
-    vector_read(model[p]->bo, model[p]->N, fp);
-#endif
-
-  ++p;
-  }
-
-}
-
-void lstm_output_string_layers_to_file(FILE * fp,lstm_model_t ** model_layers, 
-  set_t* char_index_mapping, int first, int numbers_to_display, int layers)
-{
-  lstm_values_cache_t ***caches_layer;
-  int i = 0, count, index, p = 0, b = 0;
-  int input = set_indx_to_char(char_index_mapping, first);
-  int Y = model_layers[0]->Y;
-  int N = model_layers[0]->N;
-#ifdef WINDOWS
-  double *first_layer_input;
-#else
-  double first_layer_input[Y];
-#endif
-
-  if ( fp == NULL ) 
-    return;
-
-#ifdef WINDOWS
-  first_layer_input = malloc(Y*sizeof(double));
-
-  if ( first_layer_input == NULL ) {
-    fprintf(stderr, "%s.%s.%d malloc(%zu) failed\r\n", 
-    __FILE__, __func__, __LINE__, Y*sizeof(double));
-    exit(1);
-  }
-#endif
-
-  caches_layer = e_calloc(layers, sizeof(lstm_values_cache_t**));
-
-  p = 0;
-  while ( p < layers ) {
-    caches_layer[p] = e_calloc(2, sizeof(lstm_values_cache_t*));
-
-    b = 0;
-    while ( b < 2 ) {
-      caches_layer[p][b] = lstm_cache_container_init(
-        model_layers[p]->X, 
-        model_layers[p]->N,
-        model_layers[p]->Y);
-      ++b;
-    }
-    ++p;
-  }
-
-  lstm_cache_container_set_start(caches_layer[0][0], N);
-  lstm_cache_container_set_start(caches_layer[0][0], N);
-
-  while ( i < numbers_to_display ) {
-
-    index = set_char_to_indx(char_index_mapping,input);
-
-    count = 0;
-    while ( count < Y ) {
-      first_layer_input[count] = 0.0;
-      ++count;
-    }
-
-    first_layer_input[index] = 1.0;
-
-    p = layers - 1;
-    lstm_forward_propagate(model_layers[p], first_layer_input, 
-      caches_layer[p][i % 2], caches_layer[p][(i+1)%2], p == 0);
-
-    if ( p > 0 ) {
-      --p;
-      while ( p >= 0 ) {
-        lstm_forward_propagate(model_layers[p], caches_layer[p+1][(i+1)%2]->probs, 
-          caches_layer[p][i % 2], caches_layer[p][(i+1)%2], p == 0);
-        --p;
-      }
-      p = 0;
-    }
-
-    input = set_probability_choice(char_index_mapping, caches_layer[p][(i+1)%2]->probs);
-    fprintf (fp, "%c", input );
-
-    ++i;
-  }
-
-  p = 0;
-  while ( p < layers ) {
-    b = 0;
-    while ( b < 2 ) {
-      lstm_cache_container_free( caches_layer[p][b]);
-      free(caches_layer[p][b]);
-      ++b;
-    }
-    free(caches_layer[p]);
-    ++p;
-  }
-
-  free(caches_layer);
-#ifdef WINDOWS
-  free(first_layer_input);
-#endif
-
-}
 
 
 void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_mapping,
@@ -1361,7 +777,7 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
 {
   lstm_values_cache_t ***caches_layer;
   int i = 0, count, index, p = 0, b = 0;
-  int input = set_indx_to_char(char_index_mapping, first);
+  int input = ConvertIndexToCharacter(char_index_mapping, first);
   int Y = model_layers[0]->Y;
   int N = model_layers[0]->N;
 #ifdef WINDOWS
@@ -1399,7 +815,7 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
 
   while ( i < numbers_to_display ) {
 
-    index = set_char_to_indx(char_index_mapping,input);
+    index = ConvertCharacterToIndex(char_index_mapping,input);
 
     count = 0;
     while ( count < Y ) {
@@ -1429,7 +845,7 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
       p = 0;
     }
 
-    input = set_probability_choice(char_index_mapping, 
+    input = ChooseBestProbabilityFromSet(char_index_mapping, 
     caches_layer[p][(i+1)%2]->probs);
     printf ( "%c", input );
 
@@ -1455,9 +871,9 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
 #endif
 }
 
-void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_index_mapping,
-  char * input_string, int layers, int out_length)
+void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_index_mapping, char * input_string, int layers, int out_length)
 {
+	printf("IN\n");
   lstm_values_cache_t ***caches_layers;
   int i = 0, count, index, in_len;
   char input;
@@ -1497,7 +913,7 @@ void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_ind
 
   while ( i < in_len ) {
     printf("%c", input_string[i]);
-    index = set_char_to_indx(char_index_mapping, input_string[i]);
+    index = ConvertCharacterToIndex(char_index_mapping, input_string[i]);
 
     count = 0;
     while ( count < Y ) {
@@ -1528,13 +944,13 @@ void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_ind
     ++i;
   }
 
-	input = set_probability_choice(char_index_mapping, 
+	input = ChooseBestProbabilityFromSet(char_index_mapping, 
     caches_layers[0][i%2]->probs);
 
   printf("%c", input);
   i = 0;
   while ( i < out_length ) {
-    index = set_char_to_indx(char_index_mapping,input);
+    index = ConvertCharacterToIndex(char_index_mapping,input);
 
     count = 0;
     while ( count < Y ) {
@@ -1553,9 +969,9 @@ void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_ind
       }
       p = 0;
     }
-    input = set_probability_choice(char_index_mapping, caches_layers[p][(i+1)%2]->probs);
+    input = ChooseBestProbabilityFromSet(char_index_mapping, caches_layers[p][(i+1)%2]->probs);
     printf ( "%c", input );
-    //    set_print(char_index_mapping,caches_layer_one->probs);
+    //    PrintVocabulary(char_index_mapping,caches_layer_one->probs);
     ++i;
   }
 
@@ -1582,17 +998,7 @@ void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_ind
 #endif
 }
 
-void lstm_store_progress(const char* filename, unsigned int n, double loss)
-{
-  FILE * fp;
 
-  fp = fopen(filename, "a");
-  if ( fp != NULL ) {
-    fprintf(fp, "%u,%lf\n",n,loss);
-    fclose(fp);
-  }
-
-}
 
 void lstm_model_regularization(lstm_model_t* model, lstm_model_t* gradients)
 {
@@ -1934,32 +1340,14 @@ void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
         printf("\n=====================================================\n");
       }
 
-      if ( print_progress_to_file ) {
-        FILE * fp_progress_output = fopen(print_progress_to_file_name,
-          print_progress_to_file_arg);
-        if ( fp_progress_output != NULL ) {
-          fprintf(fp_progress_output, "%s====== Iteration: %lu, loss: %.5lf ======\n", n==0 ? "" : "\n", n, loss);
-          lstm_output_string_layers_to_file(fp_progress_output, model_layers, char_index_mapping, X_train[b], print_progress_number_of_chars, layers);
-          fclose(fp_progress_output);
-        }
-      }
+     
 			
       // Flushing stdout
       fflush(stdout);
 		}
 
-    if ( store_progress_every_x_iterations && !(n % store_progress_every_x_iterations ))
-      lstm_store_progress(store_progress_file_name, n, loss);
 
-    if ( store_network_every && !(n % store_network_every) ) {
-      lstm_store(
-        params->store_network_name_raw,
-        char_index_mapping,
-        model_layers,
-        layers);
-      lstm_store_net_layers_as_json(model_layers, params->store_network_name_json,
-        params->store_char_indx_map_name, char_index_mapping, layers);
-    }
+   
 
     if ( b + params->mini_batch_size >= training_points )
       epoch++;

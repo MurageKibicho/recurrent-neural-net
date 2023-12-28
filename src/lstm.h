@@ -1,60 +1,19 @@
-/*
-* This file is part of the LSTM Network implementation In C made by Rickard Hallerbäck
-* 
-*                 Copyright (c) 2018 Rickard Hallerbäck
-* 
-* Permission is hereby granted, free of charge, to any person obtaining a copy of this 
-* software and associated documentation files (the "Software"), 
-* to deal in the Software without restriction, including without limitation the rights 
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the 
-* Software, and to permit persons to whom the Software is furnished to do so, subject to 
-* the following conditions:
-* The above copyright notice and this permission notice shall be included in all copies 
-* or substantial portions of the Software.
-*
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
-* INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
-* PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE 
-* FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
-* OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE 
-* OR OTHER DEALINGS IN THE SOFTWARE.
-*/
-
-/*! \file lstm.h
-    \brief LSTM functionalities [Perhaps most interesting from a user perspective]
-    
-    Here are some functions that define, produce and use the LSTM network.
-    
-    A LSTM network consists of an array of \ref lstm_model_t data.
-
-    Each model in this array is called a layer. Output is collected 
-    in the beginning of the array, and input is entered in the end.
-
-    Say there is L > 0 layers, in a model defined as \ref lstm_model_t ** model,
-    then model[0] refers to the output layer and model[L-1] refers to the input layer.
-*/
 
 #ifndef LSTM_H
 #define LSTM_H
 
 #include <stdlib.h>
-
-#ifdef WINDOWS
-
-#else
 #include <unistd.h>
-#endif
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include "utilities.h"
 #include "set.h"
+#include "utilities.h"
+
 #include "layers.h"
 #include "assert.h"
 
-#define	OPTIMIZE_ADAM                         0
+#define OPTIMIZE_ADAM                         0
 #define OPTIMIZE_GRADIENT_DESCENT             1
 
 #define LSTM_MAX_LAYERS                       10
@@ -227,45 +186,7 @@ void lstm_values_next_cache_init(lstm_values_next_cache_t**, int N, int X);
 void lstm_values_next_cache_free(lstm_values_next_cache_t*);
 void sum_gradients(lstm_model_t*, lstm_model_t*);
 
-/**
-* Load a previously stored network, generated with \ref lstm_store
-* \see lstm_store
-* @param path path to the model that is to be loaded
-* @param set feature set, will be read from network
-* @param params parameters, some will be read from loaded
-* @param model model reference to be set
-*/ 
-void lstm_load(const char *path, set_t *set, 
-  lstm_model_parameters_t *params, lstm_model_t ***model);
-/**
-* Store a network, can be read again with \ref lstm_load
-* \see lstm_load
-* @param path path to the model that is to be store
-* @param set feature set, will be stored to the file
-* @param model model reference to be stored
-* @param layers number of layers in the model.\
-\p model is an array, layers is used as a length. 
-*/ 
-void lstm_store(const char *path, set_t *set,
-  lstm_model_t **model, unsigned int layers);
-int lstm_reinit_model(
-  lstm_model_t** model, unsigned int layers,
-  unsigned int previousNbrFeatures, unsigned int newNbrFeatures);
-/**
-* Store a network in JSON format.
-* \see lstm_init
-* \see lstm_train
-* @param model model to be stored
-* @param filenam eile that is to be store
-* @param set_name Name of the field that will present the feature-to-index \
-mapping in the JSON file.
-* @param set feature-to-index set, will be stored to the file
-* @param layers the number of layers this model consists of. \
-\p model is an array, layers is used as a length. 
-*/ 
-void lstm_store_net_layers_as_json(lstm_model_t** model, const char * filename, 
-  const char *set_name, set_t *set, unsigned int layers);
-void lstm_store_progress(const char*, unsigned int, double);
+
 
 /**
 * This is the entry point to the realm of black magic.
@@ -334,5 +255,5 @@ void lstm_output_string_layers_to_file(FILE * fp,lstm_model_t ** model_layers,
   set_t* set, int first, int samples_to_display, int layers);
 
 void lstm_read_net_layers(lstm_model_t** model, FILE *fp, unsigned int layers);
-void lstm_store_net_layers(lstm_model_t** model, FILE *fp, unsigned int layers);
+
 #endif
