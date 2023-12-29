@@ -4,14 +4,12 @@
 #include <signal.h>
 #include <unistd.h>
 #include <assert.h>
-
 #include "std_conf.h"
 #include "lstm.h"
 #include "layers.h"
 #include "utilities.h"
 
-
-#define ITERATIONS  1000
+#define ITERATIONS  10000
 #define NO_EPOCHS   0 
 
 lstm_model_t *model = NULL, *layer1 = NULL, *layer2 = NULL;
@@ -20,7 +18,6 @@ lstm_model_parameters_t params;
 set_t set;
 
 //gcc -o3 -Ofast -msse3 src/lstm.c src/layers.c src/utilities.c src/main.c -lm -o m.o && ./m.o
-
 
 int main()
 {
@@ -119,7 +116,7 @@ int main()
    				X = params.neurons;
    			}
 		}
-		lstm_init_model(X, N, Y, &model_layers[p], 0, &params); 
+		InitializeLSTMModel(X, N, Y, &model_layers[p], 0, &params); 
 	}
 	double loss = 0.0f;
 	assert(params.layers > 0);

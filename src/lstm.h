@@ -151,7 +151,7 @@ otherwise random initialization
 * @param param model parameters
 * @return 0 on success, negative values on errors
 */ 
-int lstm_init_model(int X, int N, int Y, 
+int InitializeLSTMModel(int X, int N, int Y, 
   lstm_model_t** model_to_be_set, int zeros,
   lstm_model_parameters_t *params);
 /**
@@ -167,11 +167,11 @@ void lstm_cache_container_set_start(lstm_values_cache_t *cache, int neurons);
 * Free a model
 * @param lstm model to be freed
 */ 
-void lstm_free_model(lstm_model_t *lstm);
+void DestroyLSTMModel(lstm_model_t *lstm);
 /**
 * Compute the output of a network
-* @param model model to be used, must been initialized with \ref lstm_init_model
-* \see lstm_init_model
+* @param model model to be used, must been initialized with \ref InitializeLSTMModel
+* \see InitializeLSTMModel
 */ 
 void lstm_forward_propagate(lstm_model_t *model, double *input, 
   lstm_values_cache_t *cache_in, lstm_values_cache_t *cache_out, int softmax);
@@ -191,9 +191,9 @@ void sum_gradients(lstm_model_t*, lstm_model_t*);
 /**
 * This is the entry point to the realm of black magic.
 * Trains the network.
-* \see lstm_init_model
+* \see InitializeLSTMModel
 * @param model The model that is to be used, must have been \
-initialzed with \ref lstm_init_model.
+initialzed with \ref InitializeLSTMModel.
 * @param params Various parameters determining the training process
 * @param set The feature-to-index mapping. 
 * @param training_points length of the training data array \p X
@@ -212,10 +212,10 @@ void lstm_train(lstm_model_t** model, lstm_model_parameters_t*params,
 /**
 * If you are training on textual data, this function can be used 
 * to sample and output from the network directly to stdout. 
-* \see lstm_init_model
+* \see InitializeLSTMModel
 * \see lstm_train
 * @param model The model that is to be used, must have been \
-initialzed with \ref lstm_init_model.
+initialzed with \ref InitializeLSTMModel.
 * @param set The feature-to-index mapping. 
 * @param first input seed, the rest will "follow" to stdout.
 * @param samples_to_display How many observations to write to stdout
@@ -223,37 +223,7 @@ initialzed with \ref lstm_init_model.
 */ 
 void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* set,
   int first, int samples_to_display, int layers);
-/**
-* If you are training on textual data, this function can be used 
-* to sample and output from the network directly to stdout. 
-* \see lstm_init_model
-* \see lstm_train
-* @param model The model that is to be used, must have been \
-initialzed with \ref lstm_init_model.
-* @param set The feature-to-index mapping. 
-* @param input_string input seed string, the rest will "follow" to stdout.
-* @param layers how many layers this network has
-* @param out_length How many characters to write to stdout
-*/ 
-void lstm_output_string_from_string(lstm_model_t **model,
-  set_t* set, char * input_string, int layers, int out_length);
-/**
-* If you are training on textual data, this function can be used 
-* to sample and output from the network directly to file. 
-* \see lstm_init_model
-* \see lstm_train
-* @param fp an open file handle to which one will write. Must \
-have been opened with write privileges
-* @param model The model that is to be used, must have been \
-initialzed with \ref lstm_init_model.
-* @param set The feature-to-index mapping. 
-* @param first input seed, the rest will "follow" to file.
-* @param samples_to_display How many observations to write to stdout
-* @param layers how many layers this network has
-*/ 
-void lstm_output_string_layers_to_file(FILE * fp,lstm_model_t ** model_layers, 
-  set_t* set, int first, int samples_to_display, int layers);
 
-void lstm_read_net_layers(lstm_model_t** model, FILE *fp, unsigned int layers);
+
 
 #endif

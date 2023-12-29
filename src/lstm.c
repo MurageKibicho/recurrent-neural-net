@@ -1,24 +1,20 @@
 #include "lstm.h"
 
-void lstm_init_fail(const char * msg)
+void FailedToInitializeModel(const char * msg)
 {
-  printf("%s: %s",__func__,msg);
-  exit(-1);
+	printf("%s: %s",__func__,msg);
+	exit(-1);
 }
 
 // Inputs, Neurons, Outputs, &lstm model, zeros
-int lstm_init_model(int X, int N, int Y, 
-  lstm_model_t **model_to_be_set, int zeros, 
-  lstm_model_parameters_t *params)
+int InitializeLSTMModel(int X, int N, int Y, lstm_model_t **model_to_be_set, int zeros, lstm_model_parameters_t *params)
 {
   int S = X + N;
   lstm_model_t* lstm = e_calloc(1, sizeof(lstm_model_t));
-
   lstm->X = X;
   lstm->N = N;
   lstm->S = S;
   lstm->Y = Y;
-
   lstm->params = params;
 
   if ( zeros ) {
@@ -71,7 +67,7 @@ int lstm_init_model(int X, int N, int Y,
   return 0;
 }
 //					 lstm model to be freed
-void lstm_free_model(lstm_model_t* lstm)
+void DestroyLSTMModel(lstm_model_t* lstm)
 {
   free_vector(&lstm->Wf);
   free_vector(&lstm->Wi);
@@ -769,11 +765,7 @@ void lstm_cache_container_set_start(lstm_values_cache_t * cache, int neurons)
 
 }
 
-
-
-
-void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_mapping,
-  int first, int numbers_to_display, int layers)
+void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_mapping, int first, int numbers_to_display, int layers)
 {
   lstm_values_cache_t ***caches_layer;
   int i = 0, count, index, p = 0, b = 0;
@@ -845,8 +837,7 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
       p = 0;
     }
 
-    input = ChooseBestProbabilityFromSet(char_index_mapping, 
-    caches_layer[p][(i+1)%2]->probs);
+    input = ChooseBestProbabilityFromSet(char_index_mapping, caches_layer[p][(i+1)%2]->probs);
     printf ( "%c", input );
 
     ++i;
@@ -871,135 +862,6 @@ void lstm_output_string_layers(lstm_model_t ** model_layers, set_t* char_index_m
 #endif
 }
 
-void lstm_output_string_from_string(lstm_model_t **model_layers, set_t* char_index_mapping, char * input_string, int layers, int out_length)
-{
-	printf("IN\n");
-  lstm_values_cache_t ***caches_layers;
-  int i = 0, count, index, in_len;
-  char input;
-  int Y = model_layers[0]->Y;
-
-  int p = 0;
-
-#ifdef WINDOWS
-  double *first_layer_input = malloc(Y*sizeof(double));
-
-  if ( first_layer_input == NULL ) {
-    fprintf(stderr, "%s.%s.%d malloc(%zu) failed\r\n", 
-      __FILE__, __func__, __LINE__, Y*sizeof(double));
-    exit(1);
-  }
-#else
-  double first_layer_input[Y];
-#endif
-
-  caches_layers = e_calloc(layers, sizeof(lstm_values_cache_t**));
-
-  while ( p < layers ) {
-    caches_layers[p] = e_calloc(2, sizeof(lstm_values_cache_t*));
-
-    i = 0; 
-    while ( i < 2 ) {
-      caches_layers[p][i] = lstm_cache_container_init(
-        model_layers[p]->X, model_layers[0]->N, model_layers[0]->Y);
-      ++i;
-    }
-
-    ++p;
-  }
-
-  in_len = strlen(input_string);
-  i = 0;
-
-  while ( i < in_len ) {
-    printf("%c", input_string[i]);
-    index = ConvertCharacterToIndex(char_index_mapping, input_string[i]);
-
-    count = 0;
-    while ( count < Y ) {
-      first_layer_input[count] = count == index ? 1.0 : 0.0;
-      ++count;
-    }
-
-    p = layers - 1;
-    lstm_forward_propagate(model_layers[p],
-      first_layer_input,
-      caches_layers[p][i%2],
-      caches_layers[p][(i+1)%2],
-      p == 0);
-
-    if ( p > 0 ) {
-      --p;
-      while ( p >= 0 ) {
-        lstm_forward_propagate(model_layers[p],
-          caches_layers[p+1][(i+1)%2]->probs,
-          caches_layers[p][i%2],
-          caches_layers[p][(i+1)%2],
-          p == 0);	
-        --p;
-      }
-      p = 0;
-    }
-
-    ++i;
-  }
-
-	input = ChooseBestProbabilityFromSet(char_index_mapping, 
-    caches_layers[0][i%2]->probs);
-
-  printf("%c", input);
-  i = 0;
-  while ( i < out_length ) {
-    index = ConvertCharacterToIndex(char_index_mapping,input);
-
-    count = 0;
-    while ( count < Y ) {
-      first_layer_input[count] = count == index ? 1.0 : 0.0;
-      ++count;
-    }
-
-    p = layers - 1;
-    lstm_forward_propagate(model_layers[p], first_layer_input, caches_layers[p][i%2], caches_layers[p][(i+1)%2], p == 0);
-
-    if ( p > 0 ) {
-      --p;
-      while ( p >= 0 ) {
-        lstm_forward_propagate(model_layers[p], caches_layers[p+1][ (i+1) % 2 ]->probs, caches_layers[p][i%2], caches_layers[p][(i+1)%2], p == 0);	
-        --p;
-      }
-      p = 0;
-    }
-    input = ChooseBestProbabilityFromSet(char_index_mapping, caches_layers[p][(i+1)%2]->probs);
-    printf ( "%c", input );
-    //    PrintVocabulary(char_index_mapping,caches_layer_one->probs);
-    ++i;
-  }
-
-  printf("\n");
-
-  p = 0;
-  while ( p < layers ) {
-
-    i = 0; 
-    while ( i < 2 ) {
-      lstm_cache_container_free( caches_layers[p][i] ); 
-      free(caches_layers[p][i]);
-      ++i;
-    }
-
-    free(caches_layers[p]);
-
-    ++p;
-  }
-
-  free(caches_layers);
-#ifdef WINDOWS
-  free(first_layer_input);
-#endif
-}
-
-
-
 void lstm_model_regularization(lstm_model_t* model, lstm_model_t* gradients)
 {
   double lambda = model->params->lambda; 
@@ -1017,7 +879,7 @@ void lstm_model_regularization(lstm_model_t* model, lstm_model_t* gradients)
   vectors_add_scalar_multiply(gradients->bf, model->bf, model->N, lambda);
 }
 
-//						model, number of training points, X_train, Y_train
+//model, number of training points, X_train, Y_train
 void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
   set_t* char_index_mapping, unsigned int training_points,
   int* X_train, int* Y_train, unsigned int layers, double *loss_out)
@@ -1086,7 +948,7 @@ void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
       cache_layers[i][p] = lstm_cache_container_init(
         model_layers[i]->X, model_layers[i]->N, model_layers[i]->Y);
       if ( cache_layers[i][p] == NULL )
-        lstm_init_fail("Failed to allocate memory for the caches\n");		
+        FailedToInitializeModel("Failed to allocate memory for the caches\n");		
       ++p;
     }
 
@@ -1108,19 +970,19 @@ void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
 
   i = 0;
   while ( i < layers ) {
-    lstm_init_model(model_layers[i]->X,
+    InitializeLSTMModel(model_layers[i]->X,
       model_layers[i]->N, model_layers[i]->Y,
       &gradient_layers[i], 1, params);
-    lstm_init_model(model_layers[i]->X,
+    InitializeLSTMModel(model_layers[i]->X,
       model_layers[i]->N, model_layers[i]->Y,
       &gradient_layers_entry[i], 1, params);
     lstm_values_next_cache_init(&d_next_layers[i], 
       model_layers[i]->N, model_layers[i]->X);
 
     if ( params->optimizer == OPTIMIZE_ADAM ) {
-      lstm_init_model(model_layers[i]->X,
+      InitializeLSTMModel(model_layers[i]->X,
       model_layers[i]->N, model_layers[i]->Y, &M_layers[i], 1, params);
-      lstm_init_model(model_layers[i]->X,
+      InitializeLSTMModel(model_layers[i]->X,
       model_layers[i]->N, model_layers[i]->Y, &R_layers[i], 1, params);
     }
 
@@ -1340,7 +1202,6 @@ void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
         printf("\n=====================================================\n");
       }
 
-     
 			
       // Flushing stdout
       fflush(stdout);
@@ -1381,12 +1242,12 @@ void lstm_train(lstm_model_t** model_layers, lstm_model_parameters_t *params,
     }
 
     if ( params->optimizer == OPTIMIZE_ADAM ) {
-      lstm_free_model(M_layers[p]);
-      lstm_free_model(R_layers[p]);
+      DestroyLSTMModel(M_layers[p]);
+      DestroyLSTMModel(R_layers[p]);
     }
 
-    lstm_free_model(gradient_layers_entry[p]);
-    lstm_free_model(gradient_layers[p]);
+    DestroyLSTMModel(gradient_layers_entry[p]);
+    DestroyLSTMModel(gradient_layers[p]);
 
     ++p;
   }

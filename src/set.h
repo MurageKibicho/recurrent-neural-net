@@ -62,11 +62,29 @@ static int ConvertCharacterToIndex(set_t* set, char c)
 	return -1;
 }
 
+static void PrintVocabulary(set_t* set, double* probs)
+{
+	int i = 0;
+	while(set->values[i] != 0 && i < SET_MAX_CHARS )
+	{
+		if(set->values[i] == '\n')
+		{
+			printf("[ newline:  %lf ]\n", probs[i]);
+		}
+		else
+		{
+			printf("[ %c:     %lf ]\n", set->values[i], probs[i]);
+		}
+		i+=1;
+	}
+}
+
 static int ChooseBestProbabilityFromSet(set_t* set, double* probs)
 {
 	double sum = 0.0f;
 	double randomValue = 0.0f;
 	randomValue = ((double) rand())/RAND_MAX;
+	PrintVocabulary(set,probs);
 	for(int i = 0; i < SET_MAX_CHARS; i++)
 	{
 		sum += probs[i];
@@ -75,7 +93,7 @@ static int ChooseBestProbabilityFromSet(set_t* set, double* probs)
 			return set->values[i];	
 		}
 	}
-//PrintVocabulary(set,probs);
+
   return 0;
 }
 
@@ -93,19 +111,4 @@ static int CountVocabularySize(set_t* set)
 	return 0;
 }
 
-static void PrintVocabulary(set_t* set, double* probs)
-{
-	int i = 0;
-	while(set->values[i] != 0 && i < SET_MAX_CHARS )
-	{
-		if(set->values[i] == '\n')
-		{
-			printf("[ newline:  %lf ]\n", probs[i]);
-		}
-		else
-		{
-			printf("[ %c:     %lf ]\n", set->values[i], probs[i]);
-		}
-		i+=1;
-	}
-}
+
